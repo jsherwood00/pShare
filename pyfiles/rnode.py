@@ -1,0 +1,468 @@
+import grpc
+from concurrent import futures
+import storage_node_pb2
+import storage_node_pb2_grpc
+import time
+import os
+import json
+import random
+from typing import List, Dict, Set, Tuple
+import uuid_utils
+import network_utils
+import socket
+import threading
+from zeroconf import ServiceInfo, Zeroconf
+
+class StorageService(storage_node_pb2_grpc.StorageServiceServicer):
+    def __init__(self):
+        self.connected_clients: Dict[str, str] = {} # Clients: {UUID, IP:Port}
+        self.client_contexts: Dict[str, grpc.ServicerContext] = {} # Store specific gRPC stuff needed for each client as each client has specific gRPC handling
+        self.client_last_heartbeat: Dict[str, float] = {}  # Add timestamp tracking: {UUID: timestamp}
+        self.client_file_ports: Dict[str, int] = {} # {UUID: port}
+        self.download_dir = "downloaded_files"
+        os.makedirs(self.download_dir, exist_ok=True)
+        
+        # Start heartbeat monitoring thread
+        self._start_heartbeat_monitor()
+
+    # Check on clients every 5 secs
+    def _start_heartbeat_monitor(self):
+        """Remove clients who haven't sent a signal in the last 15 seconds"""
+        def monitor_heartbeats():
+            while True:
+                current_time = time.time()
+                ianctive_clients = []
+                
+                # Check for clients that haven't sent a heartbeat in 15 seconds
+                for uuid, last_time in self.client_last_heartbeat.items():
+                    if current_time - last_time > 15:  # 15 second timeout
+                        ianctive_clients.append(uuid)
+                
+                # Remove inactive clients
+                for uuid in ianctive_clients:
+                    self._handle_client_disconnect(uuid)
+                    
+                time.sleep(5)  # Check every 5 seconds
+        
+        # Do this in a non-blocking thread
+        threading.Thread(target=monitor_heartbeats, daemon=True).start()
+
+    def _handle_client_disconnect(self, uuid: str) -> None:
+        """Remove client information when it disconnects"""
+        if uuid in self.connected_clients:
+            addr = self.connected_clients[uuid]
+            print(f"\nClient disconnected - UUID: {uuid}, Address: {addr}")
+            del self.connected_clients[uuid]
+            self.client_contexts.pop(uuid, None)
+            self.client_last_heartbeat.pop(uuid, None)
+            self.client_file_ports.pop(uuid, None)
+
+    def Heartbeat(self, request_iterator, context):
+        """Handle heartbeats from clients"""
+        client_uuid = None
+        
+        try:
+            for request in request_iterator:
+                client_uuid = request.uuid
+                if client_uuid not in self.connected_clients:
+                    yield storage_node_pb2.HeartbeatResponse(
+                        success=False,
+                        message="Unknown client UUID"
+                    )
+                    return
+                
+                # Update last heartbeat timestamp
+                self.client_last_heartbeat[client_uuid] = time.time()
+                self.client_contexts[client_uuid] = context
+                # Store specific file service port
+                self.client_file_ports[client_uuid] = request.file_service_port
+
+                yield storage_node_pb2.HeartbeatResponse(
+                    success=True,
+                    message="Heartbeat acknowledged"
+                )
+                
+        except Exception as e:
+            print(f"Heartbeat error for client {client_uuid}: {e}")
+        finally:
+            if client_uuid:
+                self._handle_client_disconnect(client_uuid)
+
+
+    def RequestUUID(self, request, context):
+        """Hanlde when a client requests a UUID (first connection)"""
+        if request.type == 'request_uuid':
+            # Generate UUID for client and store it 
+            new_uuid = uuid_utils.generate_uuid()
+
+            # Stored in "storage_conf/saved_uuid.json" -- might change later
+            uuid_utils.store_uuid(new_uuid)
+
+            # Identify client -- context.peer() returns basically ipv4:ip:port
+            client_addr = context.peer()
+
+            # Store UUID and client addr
+            self.connected_clients[new_uuid] = client_addr
+
+            self.client_last_heartbeat[new_uuid] = time.time()  # Initialize heartbeat
+
+            print(f"Generated new UUID for client: {new_uuid} ({client_addr})")
+            return storage_node_pb2.UUIDResponse(
+                success=True,
+                uuid=new_uuid,
+                message="UUID generated successfully"
+            )
+        
+        # Unknown message -- not really necessary I think since we define the proper messages in the storage node, but good to have
+        return storage_node_pb2.UUIDResponse(
+            success=False,
+            message="Invalid request type"
+        )
+    
+    def ValidateUUID(self, request, context):
+        """Check if UUID was generated by this registry node and compare it to the incoming one"""
+        # TODO: actually check if it's generated in the registry node
+
+        client_uuid = request.uuid
+        # Store {UUID: addr}
+
+        client_addr = context.peer()
+        self.connected_clients[client_uuid] = client_addr
+        self.client_last_heartbeat[client_uuid] = time.time()  # Initialize heartbeat
+        print(f"Client reconnected with UUID: {client_uuid} ({client_addr})")
+        return storage_node_pb2.UUIDResponse(
+            success=True,
+            uuid=client_uuid,
+            message="UUID validated successfully"
+        )
+    
+class RegistryNode:
+    def __init__(self, service_type="_rnode._tcp.local.", service_name="rnode"):
+        self.zeroconf = Zeroconf()
+        self.service_type = service_type
+        self.service_name = service_name
+        self.full_name = f"{service_name}.{service_type}"
+        self.server = None
+        self.storage_service = StorageService()
+        self.mappings_dir = "file_mappings"
+        self.mappings_file = os.path.join(self.mappings_dir, "storage_mappings.json")
+
+        os.makedirs(self.mappings_dir, exist_ok=True)
+
+    def register_service(self, port: int):
+        hostname = socket.gethostname()
+        local_ip = network_utils.get_real_ip()
+
+        info = ServiceInfo(
+            type_=self.service_type,
+            name=self.full_name,
+            addresses=[socket.inet_aton(local_ip)],
+            port=port,
+            server=f"{hostname}.local."
+        )
+
+        self.zeroconf.register_service(info)
+        print(f"Registered service {self.full_name} on {local_ip}:{port}")
+
+        # Create the gRPC server
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        storage_node_pb2_grpc.add_StorageServiceServicer_to_server(
+            self.storage_service, self.server
+        )
+        # No SSL/TLS, won't matter since it's LAN(?)
+        self.server.add_insecure_port(f'[::]:{port}')
+        self.server.start()
+        
+        return info
+
+    def unregister_service(self, info):
+        if self.server:
+            self.server.stop(0)
+        self.zeroconf.unregister_service(info)
+        self.zeroconf.close()
+
+
+    def upload_file_to_snode(self, target_uuid: str, filename: str):
+        try:
+            with open(self.mappings_file, 'r') as f:
+                mappings = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            mappings = {}
+
+        try:
+            # Get the client context for the target storage node
+            context = self.storage_service.client_contexts.get(target_uuid)
+            if not context or target_uuid not in self.storage_service.connected_clients:
+                print(f"Storage node {target_uuid} is not connected")
+                return False
+            
+            client_addr = self.storage_service.connected_clients[target_uuid]
+            ip = client_addr.split(':')[1]  # Get the IP address part
+            port = self.storage_service.client_file_ports.get(target_uuid)
+        
+            # Create a channel to the storage node
+            channel = grpc.insecure_channel(f'{ip}:{port}')
+
+            # A stub is essentially an object that allows you to use the server methods like local functions
+            stub = storage_node_pb2_grpc.StorageServiceStub(channel)
+
+            def file_chunk_generator():
+                CHUNK_SIZE = 1024 * 1024  # 1MB chunks
+                try:
+                    file_size = os.path.getsize(filename)
+                    with open(filename, 'rb') as f:
+                        offset = 0
+                        while True:
+                            chunk = f.read(CHUNK_SIZE)
+                            if not chunk:
+                                break
+                            yield storage_node_pb2.FileChunk(
+                                content=chunk,
+                                filename=os.path.basename(filename),
+                                offset=offset,
+                                total_size=file_size
+                            )
+                            offset += len(chunk)
+                except FileNotFoundError:
+                    print(f"File {filename} not found")
+                    return
+                except Exception as e:
+                    print(f"Error reading file: {e}")
+                    return
+
+            # Send the file chunks to the storage node
+            response = stub.UploadFile(file_chunk_generator())
+
+            if response.success:
+                print(f"File uploaded successfully: {response.message}")
+
+                # update uuid file mappings here
+                base_filename = os.path.basename(filename)
+                if target_uuid not in mappings:
+                    mappings[target_uuid] = []
+                if base_filename not in mappings[target_uuid]:
+                    mappings[target_uuid].append(base_filename)
+                
+
+                with open(self.mappings_file, 'w') as f:
+                    json.dump(mappings, f, indent=4)
+                
+                return True
+            else:
+                print(f"Upload failed: {response.message}")
+                return False
+
+        except Exception as e:
+            print(f"Upload error: {e}")
+            return False
+        
+    def download_from_snode(self, filename: str) -> bool:
+        try:
+            with open(self.mappings_file, 'r') as f:
+                mappings = json.load(f)
+        except json.JSONDecodeError:
+            print("Error reading mapping files")
+            return False
+        
+        target_uuid = None
+        for uuid, files in mappings.items():
+            if filename in files:
+                target_uuid = uuid
+                break
+        if not target_uuid:
+            print(f"File {filename} is not in any storage node")
+            return False
+        
+        try:
+            # Check if node is connected
+            if target_uuid not in self.storage_service.connected_clients:
+                print(f"Storage node {target_uuid} is not connected")
+                return False
+                    
+            client_addr = self.storage_service.connected_clients[target_uuid]
+            ip = client_addr.split(':')[1]
+            port = self.storage_service.client_file_ports.get(target_uuid)
+            
+            if not port:
+                print(f"No file service port found for storage node {target_uuid}")
+                return False
+                
+            # Create channel to storage node
+            print(f"Connecting to storage node at {ip}:{port}")
+            channel = grpc.insecure_channel(f'{ip}:{port}')
+            stub = storage_node_pb2_grpc.StorageServiceStub(channel)
+            
+            # Prepare download request
+            request = storage_node_pb2.FileRequest(filename=filename)
+            os.makedirs("dlfiles", exist_ok=True)
+            save_path = os.path.join("dlfiles", filename)
+
+            total_size = 0
+            with open(save_path, 'wb') as f:
+                try:
+                    for chunk in stub.RequestFile(request):
+                        f.write(chunk.content)
+                        total_size += len(chunk.content)
+                        if chunk.total_size > 0:
+                            progress = (total_size / chunk.total_size) * 100
+                            print(f"\rDownloading: {progress:.1f}%", end="", flush=True)
+                    print("\nDownload complete!")
+                except grpc.RpcError as rpc_error:
+                    print(f"\nRPC error: {rpc_error.code()}: {rpc_error.details()}")
+                    if os.path.exists(save_path):
+                        os.remove(save_path)
+                    return False
+                        
+            print(f"File downloaded successfully to {save_path}")
+            return True
+            
+        except Exception as e:
+            print(f"Download error details: {str(e)}")
+            print(f"Error type: {type(e)}")
+            if 'save_path' in locals() and os.path.exists(save_path):
+                os.remove(save_path)
+            return False
+        
+    def get_random_snodes(self, n: int) -> List[str]:
+        """Choose N random snodes"""
+
+
+        connected_snodes = list(self.storage_service.connected_clients.keys())
+
+        if not connected_snodes:
+            print("No storage nodes connected")
+            return []
+        
+        # This should never really happen since our algorithm will control this and will always choose proper N
+        # Perhaps maybe if snodes disconnect and something hasn't updated...
+        if n >= len(connected_snodes):
+            print("Too many snodes requested")
+            return []
+        
+        selected_snodes = random.sample(connected_snodes, n)
+        return selected_snodes
+    
+    def upload_folder_to_snodes(self, folder_path: str) -> Dict[str, Tuple[str, bool]]:
+        """Upload folder to n snodes, folder will have erasure coded files"""
+
+        # Again, none of this error checking is really necessary because of how our program is set up linearly, probably
+        if not os.path.isdir(folder_path):
+            print(f"Folder {folder_path} does not exist")
+            return {}
+            
+        # Get all files in folder
+        files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+        
+        if not files:
+            print(f"No files found in {folder_path}")
+            return {}
+            
+        n = len(files)
+            
+        snodes = self.get_random_snodes(n)
+        
+        if not snodes:
+            print("No storage nodes available for upload")
+            return {}
+        
+
+        num_files_to_upload = min(len(files), len(snodes))
+        
+        # Upload each file to a different storage node
+        results = {}
+        for i in range(num_files_to_upload):
+            file_path = os.path.join(folder_path, files[i])
+            snode_uuid = snodes[i]
+            
+            print(f"Uploading {file_path} to storage node {snode_uuid}")
+            success = self.upload_file_to_snode(snode_uuid, file_path)
+            
+            results[files[i]] = (snode_uuid, success)
+            
+        return results
+        
+    def get_client_list(self) -> List[Dict[str, str]]:
+        return [
+            {'uuid': uuid, 'address': addr}
+            for uuid, addr in self.storage_service.connected_clients.items()
+        ]
+
+if __name__ == "__main__":
+    service = RegistryNode()
+    service_info = service.register_service(port=12345)
+
+    try:
+        while True:
+            command = input("\nEnter command (list/help/quit/upload/download): ").strip().lower()
+            
+            if command == "help":
+                print("\nAvailable commands:")
+                print("  list     - List all connected clients")
+                print("  upload   - Upload a file to a storage node")
+                print("  download - Download a file from a storage node")
+                print("  help     - Show this help message")
+                print("  quit     - Exit the program")
+                
+            elif command == "list":
+                client_list = service.get_client_list()
+                if not client_list:
+                    print("No clients connected")
+                else:
+                    print("\nConnected Clients:")
+                    for i, client in enumerate(client_list):
+                        print(f"{i}: Address: {client['address']:<15} UUID: {client['uuid']}")
+            
+            elif command == "upload":
+                client_list = service.get_client_list()
+                if not client_list:
+                    print("No storage nodes connected")
+                    continue
+                    
+                # Display available storage nodes
+                print("\nAvailable storage nodes:")
+                for i, client in enumerate(client_list):
+                    print(f"{i}: Address: {client['address']:<15} UUID: {client['uuid']}")
+                
+                # Get target node
+                try:
+                    node_idx = int(input("\nEnter storage node number: "))
+                    if node_idx < 0 or node_idx >= len(client_list):
+                        print("Invalid storage node number")
+                        continue
+                except ValueError:
+                    print("Invalid input")
+                    continue
+                
+                # Get filename
+                filename = input("Enter filename to upload: ").strip()
+                if not filename:
+                    print("Invalid filename")
+                    continue
+                
+                # Attempt upload
+                target_uuid = client_list[node_idx]['uuid']
+                service.upload_file_to_snode(target_uuid, filename)
+
+            elif command == "download":
+                # Get filename to download
+                filename = input("Enter filename to download: ").strip()
+                if not filename:
+                    print("Invalid filename")
+                    continue
+                
+                # Attempt download
+                if service.download_from_snode(filename):
+                    print(f"Successfully downloaded {filename}")
+                else:
+                    print(f"Failed to download {filename}")
+                        
+            elif command == "quit":
+                break
+            else:
+                print("Unknown command. Type 'help' for available commands.")
+            
+    except KeyboardInterrupt:
+        print("\nExiting...")
+    finally:
+        print("Unregistering service...")
+        service.unregister_service(service_info)

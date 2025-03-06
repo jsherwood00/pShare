@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>pShare</title>
+        <link rel="stylesheet" href="static/app.css">
+    </head>
+    <body>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="toolbar">
+                <input type="submit" formaction="/upload" value="Upload">
+                <input type="submit" formaction="/download" value="Download">
+                <input type="submit" formaction="/delete" value="Delete">
+                <input type="submit" formaction="/snodes" value="Manage SNODES">
+                <input type="submit" formaction="/rnodes" value="Manage RNODES">
+            </div>
+            <input type="file" name="file">
+            <table>
+                <tr>
+                    <th>File</th>
+                    <th>KB</th>
+                </tr>
+                {% for filename, size in files.items() %}
+                <tr>
+                    <td>
+                        <input type="checkbox" class="check-with-label" id="{{ filename }}" name="selected-file" value="{{ filename }}">
+                        <label class="label-for-check" for="{{ filename }}">{{filename}}</label>
+                    </td>
+                    <td>
+                        {{size}}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>   
+        </form>     
+    </body>
+</html>

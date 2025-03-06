@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package storage;
+
+service StorageService {
+    // UUID Management
+    rpc RequestUUID (UUIDRequest) returns (UUIDResponse) {}
+    rpc ValidateUUID (UUIDValidation) returns (UUIDResponse) {}
+    
+    // File Operations
+    rpc UploadFile (stream FileChunk) returns (FileResponse) {}
+    rpc RequestFile (FileRequest) returns (stream FileChunk) {}
+
+    rpc Heartbeat(stream HeartbeatRequest) returns (stream HeartbeatResponse) {}
+
+}
+
+message HeartbeatRequest {
+    string uuid = 1;
+    int64 timestamp = 2;
+    int32 file_service_port = 3;
+}
+
+message HeartbeatResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message UUIDRequest {
+    string type = 1;  // "request_uuid" or "send_uuid"
+    optional string uuid = 2;  // Only used for "send_uuid"
+}
+
+message UUIDResponse {
+    bool success = 1;
+    string uuid = 2;
+    string message = 3;
+}
+
+message UUIDValidation {
+    string uuid = 1;
+}
+
+message FileChunk {
+    bytes content = 1;
+    string filename = 2;
+    uint64 offset = 3;
+    uint64 total_size = 4;
+}
+
+message FileRequest {
+    string filename = 1;
+}
+
+message FileResponse {
+    bool success = 1;
+    string message = 2;
+    uint64 size = 3;
+}

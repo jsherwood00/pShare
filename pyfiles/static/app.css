@@ -1,0 +1,49 @@
+/* Toolbar styling */
+
+.toolbar {
+    display: flex;
+    padding: 10px 0;
+}
+
+.toolbar input {
+    margin: 10px;
+    font-size: 25px;
+}
+
+.generalButton {
+    margin: 10px;
+    font-size: 25px;  
+}
+
+
+/* File styling */ 
+
+table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+th, td {
+    font-size: 20px;
+    width: 33%;
+    padding: 10px;
+    text-align: left;
+    word-wrap: break-word;
+}
+
+/* Removes the tick box */
+input[type="checkbox"] {
+    display: none;
+}
+
+label {
+    cursor: pointer;
+}
+
+label:hover {
+    background-color: lightblue;
+}
+
+.check-with-label:checked + .label-for-check {
+    background-color: lightblue;
+}

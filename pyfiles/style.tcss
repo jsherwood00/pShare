@@ -1,0 +1,36 @@
+Screen {
+    layout: vertical;
+    background: black;
+}
+
+VerticalScroll {
+    overflow: auto auto;
+}
+
+#arrows {
+    width: 2%;
+    background: black;
+}
+
+.top-row {
+    layout: horizontal;
+    height: 45%;
+    border: solid green;
+}
+
+.bottom-row {
+    layout: horizontal;
+    height: 10%;
+    background: black;
+}
+
+#terminal {
+    height: 100%;
+    width: 100%;
+    background: black;
+    border: 0%;
+}
+
+.box {
+    height: 35%;
+}

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Connections</title>
+        <link rel="stylesheet" href="static/app.css">
+    </head>
+    <body>
+        <b><a href="{{ url_for('home') }}">Home</a></b>
+        {% if type == "s" %}
+        <h2><b>Connected SNODES ( {{ used_storage }} of {{ available_storage }} MB Used )</b></h2>
+        {% else %}
+        <h2><b>Connected RNODES</b></h2>
+        {% endif %}
+        <form method="POST">
+            <table>
+                {% if type == "s" %}
+                <input type="submit" formaction="remove-snode" value="Delete" class="generalButton">
+                {% else %}
+                <input type="submit" formaction="remove-rnode" value="Delete" class="generalButton">
+                {% endif %}
+
+                <tr>
+                    <th>Name</th>
+                    <th>Storage (MB)</th>
+                </tr>
+
+                {% for snode_name, size in connected_nodes.items() %}
+                <tr>
+                    <td>
+                        <input type="checkbox" class="check-with-label" id="{{ snode_name }}" name="selected-node" value="{{ snode_name }}">
+                        <label class="label-for-check" for="{{ snode_name }}">{{ snode_name }}</label>
+                    </td>
+                    <td>
+                        {{size}}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </form>
+
+        {% if type == "s" %}
+        <h2><b>Available SNODES</b></h2>
+        {% else %}
+        <h2><b>Available RNODES</b></h2>
+        {% endif %}
+
+        <form method="POST">
+            <table>
+                {% if type == "s" %}
+                <input type="submit" formaction="add-snode" value="Add" class="generalButton">
+                {% else %}
+                <input type="submit" formaction="add-rnode" value="Add" class="generalButton">
+                <input type="number" value="MB" name="StorageSize" id="StorageSize" required>
+                <label for="StorageSize">Storage Size (MB)</label>
+                {% endif %}
+
+                <tr>
+                    <th>Name</th>
+                    <th>Storage (MB)</th>
+                </tr>
+
+                {% for snode_name, size in available_nodes.items() %}
+                <tr>
+                    <td>
+                        <input type="checkbox" class="check-with-label" id="{{ snode_name }}" name="selected-available-node" value="{{ snode_name }}">
+                        <label class="label-for-check" for="{{ snode_name }}">{{ snode_name }}</label>
+                    </td>
+                    <td>
+                        {{size}}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </form>
+    </body>
+</html>
