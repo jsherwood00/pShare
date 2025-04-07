@@ -1,25 +1,45 @@
 from google.cloud import storage
 import os
 from google.oauth2 import service_account
+import rnode
+import cmd_util
+import shutil
 
+KEY_PATH = "google.json"
+BucketName = "pshare1234"
 
-KEY_PATH = "./capstone.json"
-credentials = service_account.Credentials.from_service_account_file(KEY_PATH)
+def set_key(path:str):
+    if os.path.exists(KEY_PATH):
+        os.remove(KEY_PATH)
+    shutil.copy2(path, KEY_PATH)
 
 def check_key():
     return cmd_util.check_exist(KEY_PATH)
+
+def get_credentials():
+    return service_account.Credentials.from_service_account_file(KEY_PATH)
     
 # Initialize the client for Google Cloud Storage
 def get_storage_client():
+    credentials = get_credentials()
     return storage.Client(credentials=credentials, project=credentials.project_id)
 
 # Upload a file to Google Cloud Storage
-def upload_to_gcs(bucket_name, source_file_name, destination_blob_name):
+def upload_to_gcs( source_file_name,  bucket_name=BucketName):
     # Get the storage client
     client = get_storage_client()
+
+    #check if bucket exist
+    buck_list = list_buckets()
+    print(buck_list)
+    if buck_list == None: create_bucket(BucketName)
     
+    
+    destination_blob_name = os.path.basename(source_file_name)
+
     # Get the bucket
     bucket = client.get_bucket(bucket_name)
+    if bucket == None: create_bucket(BucketName)
     
     # Create a blob (object) in the bucket
     blob = bucket.blob(destination_blob_name)
@@ -28,11 +48,13 @@ def upload_to_gcs(bucket_name, source_file_name, destination_blob_name):
     blob.upload_from_filename(source_file_name)
     print(f"File {source_file_name} uploaded to {destination_blob_name}.")
 
-# Download a file from Google Cloud Storage
-def download_from_gcs(bucket_name, source_blob_name, destination_file_name):
+# Download a file from Google Cloud Storage 
+def download_from_gcs( destination_file_name, bucket_name=BucketName):
     # Get the storage client
     client = get_storage_client()
     
+    source_blob_name = os.path.basename(destination_file_name)
+
     # Get the bucket
     bucket = client.get_bucket(bucket_name)
     
@@ -51,46 +73,59 @@ def create_bucket(bucket_name, location="US"):
     # Create a new bucket
     bucket = client.bucket(bucket_name)
     
-    # Set the location of the bucket (optional; default is 'US')
-    bucket.location = location
+    
     
     # Create the bucket in Google Cloud Storage
     bucket = client.create_bucket(bucket)
     print(f"Bucket {bucket.name} created in {bucket.location}.")
 
 
-def list_buckets(project_id=credentials.project_id):
+def list_buckets():
+    project_id=get_credentials().project_id
     # Set up credentials and create the storage client
-    client = storage.Client(credentials=credentials, project=project_id)
+    client = storage.Client(credentials=get_credentials(), project=project_id)
     
     # List all buckets in the project
     buckets = client.list_buckets()
     
     # Print the bucket names
-    print(f"Buckets in project {project_id}:")
-    for bucket in buckets:
-        print(bucket.name)
+    return buckets
 
-def delete_file(bucket_name:str,file_name:str):
+def delete_file(file_name:str,bucket_name=BucketName):
     client = get_storage_client()
     bucket = client.bucket(bucket_name)
     file = bucket.blob(file_name)
     file.delete()
 
+def get_full_name(basename):
+    """Lists all the blobs in the bucket."""
+    bucket_name = BucketName
+
+    storage_client = get_storage_client()
+
+    blobs = storage_client.list_blobs(bucket_name)
+    
+    blob_list = []
+    for blob in blobs:
+        if basename == blob.name.split("_enc_")[0]:
+            blob_list.append(blob.name)
+        elif basename == blob.name.split("_par_")[0]:
+            blob_list.append(blob.name)
+    return blob_list
+
 
 if __name__ == "__main__":
     # Replace with your bucket name
-    bucket_name = 'availabletestbucket'
     # create_bucket(bucket_name)
     list_buckets()
     
     # Upload example
     source_file_name = './hashes.json'  # The local file to upload
     destination_blob_name = 'hashes.json'  # The name of the object in GCS
-    upload_to_gcs(bucket_name, source_file_name, destination_blob_name)
+    upload_to_gcs(source_file_name)
 
     # Download example
     source_blob_name = 'hashes.json'  # The object name in GCS
     destination_file_name = 'hashes.json'  # Local path to save the file
-    download_from_gcs(bucket_name, source_blob_name, destination_file_name)
-    delete_file(bucket_name,destination_blob_name)
+    download_from_gcs(destination_file_name)
+    delete_file(destination_blob_name)

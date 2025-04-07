@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12storage_node.proto\x12\x07storage\"N\n\x10HeartbeatRequest\x12\x0c\n\x04uuid\x18\x01 \x01(\t\x12\x11\n\ttimestamp\x18\x02 \x01(\x03\x12\x19\n\x11\x66ile_service_port\x18\x03 \x01(\x05\"5\n\x11HeartbeatResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"7\n\x0bUUIDRequest\x12\x0c\n\x04type\x18\x01 \x01(\t\x12\x11\n\x04uuid\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x07\n\x05_uuid\">\n\x0cUUIDResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0c\n\x04uuid\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\"\x1e\n\x0eUUIDValidation\x12\x0c\n\x04uuid\x18\x01 \x01(\t\"R\n\tFileChunk\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\x0c\x12\x10\n\x08\x66ilename\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x04\x12\x12\n\ntotal_size\x18\x04 \x01(\x04\"\x1f\n\x0b\x46ileRequest\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\">\n\x0c\x46ileResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x0c\n\x04size\x18\x03 \x01(\x04\x32\xd4\x02\n\x0eStorageService\x12<\n\x0bRequestUUID\x12\x14.storage.UUIDRequest\x1a\x15.storage.UUIDResponse\"\x00\x12@\n\x0cValidateUUID\x12\x17.storage.UUIDValidation\x1a\x15.storage.UUIDResponse\"\x00\x12;\n\nUploadFile\x12\x12.storage.FileChunk\x1a\x15.storage.FileResponse\"\x00(\x01\x12;\n\x0bRequestFile\x12\x14.storage.FileRequest\x1a\x12.storage.FileChunk\"\x00\x30\x01\x12H\n\tHeartbeat\x12\x19.storage.HeartbeatRequest\x1a\x1a.storage.HeartbeatResponse\"\x00(\x01\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12storage_node.proto\x12\x07storage\"}\n\x10HeartbeatRequest\x12\x0c\n\x04uuid\x18\x01 \x01(\t\x12\x11\n\ttimestamp\x18\x02 \x01(\x03\x12\x19\n\x11\x66ile_service_port\x18\x03 \x01(\x05\x12\x1b\n\x13storage_capacity_mb\x18\x04 \x01(\x01\x12\x10\n\x08hostname\x18\x05 \x01(\t\"5\n\x11HeartbeatResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"]\n\x0bUUIDRequest\x12\x0c\n\x04type\x18\x01 \x01(\t\x12\x11\n\x04uuid\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x16\n\tnode_type\x18\x03 \x01(\tH\x01\x88\x01\x01\x42\x07\n\x05_uuidB\x0c\n\n_node_type\">\n\x0cUUIDResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0c\n\x04uuid\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\"M\n\x0eUUIDValidation\x12\x0c\n\x04uuid\x18\x01 \x01(\t\x12\x1b\n\x13storage_capacity_mb\x18\x02 \x01(\x01\x12\x10\n\x08hostname\x18\x03 \x01(\t\"R\n\tFileChunk\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\x0c\x12\x10\n\x08\x66ilename\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x04\x12\x12\n\ntotal_size\x18\x04 \x01(\x04\"\x1f\n\x0b\x46ileRequest\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\">\n\x0c\x46ileResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x0c\n\x04size\x18\x03 \x01(\x04\x32\xd4\x02\n\x0eStorageService\x12<\n\x0bRequestUUID\x12\x14.storage.UUIDRequest\x1a\x15.storage.UUIDResponse\"\x00\x12@\n\x0cValidateUUID\x12\x17.storage.UUIDValidation\x1a\x15.storage.UUIDResponse\"\x00\x12;\n\nUploadFile\x12\x12.storage.FileChunk\x1a\x15.storage.FileResponse\"\x00(\x01\x12;\n\x0bRequestFile\x12\x14.storage.FileRequest\x1a\x12.storage.FileChunk\"\x00\x30\x01\x12H\n\tHeartbeat\x12\x19.storage.HeartbeatRequest\x1a\x1a.storage.HeartbeatResponse\"\x00(\x01\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,21 +32,21 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'storage_node_pb2', _globals
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_HEARTBEATREQUEST']._serialized_start=31
-  _globals['_HEARTBEATREQUEST']._serialized_end=109
-  _globals['_HEARTBEATRESPONSE']._serialized_start=111
-  _globals['_HEARTBEATRESPONSE']._serialized_end=164
-  _globals['_UUIDREQUEST']._serialized_start=166
-  _globals['_UUIDREQUEST']._serialized_end=221
-  _globals['_UUIDRESPONSE']._serialized_start=223
-  _globals['_UUIDRESPONSE']._serialized_end=285
-  _globals['_UUIDVALIDATION']._serialized_start=287
-  _globals['_UUIDVALIDATION']._serialized_end=317
-  _globals['_FILECHUNK']._serialized_start=319
-  _globals['_FILECHUNK']._serialized_end=401
-  _globals['_FILEREQUEST']._serialized_start=403
-  _globals['_FILEREQUEST']._serialized_end=434
-  _globals['_FILERESPONSE']._serialized_start=436
-  _globals['_FILERESPONSE']._serialized_end=498
-  _globals['_STORAGESERVICE']._serialized_start=501
-  _globals['_STORAGESERVICE']._serialized_end=841
+  _globals['_HEARTBEATREQUEST']._serialized_end=156
+  _globals['_HEARTBEATRESPONSE']._serialized_start=158
+  _globals['_HEARTBEATRESPONSE']._serialized_end=211
+  _globals['_UUIDREQUEST']._serialized_start=213
+  _globals['_UUIDREQUEST']._serialized_end=306
+  _globals['_UUIDRESPONSE']._serialized_start=308
+  _globals['_UUIDRESPONSE']._serialized_end=370
+  _globals['_UUIDVALIDATION']._serialized_start=372
+  _globals['_UUIDVALIDATION']._serialized_end=449
+  _globals['_FILECHUNK']._serialized_start=451
+  _globals['_FILECHUNK']._serialized_end=533
+  _globals['_FILEREQUEST']._serialized_start=535
+  _globals['_FILEREQUEST']._serialized_end=566
+  _globals['_FILERESPONSE']._serialized_start=568
+  _globals['_FILERESPONSE']._serialized_end=630
+  _globals['_STORAGESERVICE']._serialized_start=633
+  _globals['_STORAGESERVICE']._serialized_end=973
 # @@protoc_insertion_point(module_scope)

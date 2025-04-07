@@ -5,6 +5,18 @@ import os
 import cmd_util
 from boto3.s3.transfer import S3UploadFailedError
 from botocore.exceptions import ClientError
+import shutil
+
+BucketName="pshare1234"
+
+def set_key(access_id:str,key:str):
+    dict_key = {
+        "aws_access_id" : access_id,
+        "aws_access_key" :key
+    }
+    json_obj = json.dumps(dict_key,indent=4)
+    with open('key.json', 'w') as f:
+        f.write(json_obj)
 
 def check_key():
     return cmd_util.check_exist("key.json")
@@ -18,21 +30,25 @@ def load_s3_source():
     
     return s3_resource
 
-s3_resource = load_s3_source()
 
-def get_bucket_name(s3_resource):
+def get_bucket_name():
+    s3_resource=load_s3_source()
     buckets = []
     for bucket in s3_resource.buckets.all():
         buckets.append(bucket.name)
     return buckets
 
-def check_bucket_exist(s3_resource,bucket_name:str):
+def check_bucket_exist(bucket_name=BucketName):
+    s3_resource = load_s3_source()
     buckets = get_bucket_name(s3_resource)
     if bucket_name in buckets:
         return True
     return False
 
-def upload(bucket_name,file_name:str):
+def upload(file_name:str,bucket_name=BucketName):
+    s3_resource = load_s3_source()
+    if check_bucket_exist(BucketName)==False: 
+        s3_resource.create_bucket(Bucket=BucketName)
     
     bucket = s3_resource.Bucket(bucket_name)
     file_obj = bucket.Object(os.path.basename(file_name))
@@ -45,13 +61,13 @@ def upload(bucket_name,file_name:str):
         return -1
 
 
-def download(bucket_name,file_name:str):
+def download(file_name:str,bucket_name=BucketName):
+    s3_resource = load_s3_source()
     bucket = s3_resource.Bucket(bucket_name)
     dest_obj = bucket.Object(os.path.basename(file_name))
     data = io.BytesIO()
     try:
         dest_obj.download_file(dest_obj.key)
-        # data.seek(0)
         cmd_util.move_file(dest_obj.key,file_name)
         print(f"Got your object. File: {file_name}\n")
         # print(f"\t{data.read()}")
@@ -61,6 +77,22 @@ def download(bucket_name,file_name:str):
             f"\t{err.response['Error']['Code']}:{err.response['Error']['Message']}"
     )
 
-def delete_file(bucket_name:str,file_name:str):
+def delete_file(file_name:str,bucket_name=BucketName):
+    s3_resource = load_s3_source()
     bucket = s3_resource.Bucket(bucket_name)
     s3_resource.Object(bucket_name=bucket_name, key=file_name).delete()
+
+def get_full_name(basename):
+    """Lists all the blobs in the bucket."""
+    bucket_name = BucketName
+    with open('key.json', 'r') as f:
+        data = json.load(f)
+    s3 = boto3.client("s3",aws_access_key_id=data['aws_access_id'],aws_secret_access_key=data['aws_access_key'])
+    obj = s3.list_objects_v2(Bucket=bucket_name)
+    
+    blob_list = []
+    for f in obj['Contents']:
+        
+        if basename == f['Key'].split("_enc_")[0]: blob_list.append(f['Key'])
+        elif basename == f['Key'].split("_par_")[0]: blob_list.append(f['Key'])
+    return blob_list

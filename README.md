@@ -1,59 +1,5 @@
 # pShare Documentation
 
-# Sprint Goals Spring 2025
-
-## Current Project Status:
-- (Alpha) features integrated with UI
-  - File Chunking and Distribution
-  - Erasure Coding
-  - LAN Connectivity (but only between 2 nodes and not formally tested)
-    - Still need to check for drawbacks/errors within node connection, maintaining multiple nodes, communication betweens, etc. 
-- A lot of work to finish the integration + test (our current TUI works at an early alpha level but has many bugs/issues before it could be considered 'working' with the current features.
-
-
-## Product Goals:
-- Cloud services integrated as redundancy/backup nodes
-- Adaptive large size P2P network capability
-- File management in Registry Node
-- Refine TUI
-
-### January Sprint
-<strong>Goal:</strong> Combine functionality in a more elegant manner and refactor hardcoded components, fix small bugs, implement missing secondary core components
-
-- <strong>Will</strong>: Refactor registry node components out of TUI.py + make documentation for the interface functions
-- <strong>James</strong>: Add error handling and fix the (currently hardcoded) upload function (including making the large amount of code in TUI.py into encrypt.py) + make documentation for the interface functions
-- <strong>Josh</strong>: Research WAN (to implement during the next sprint) + make TUI less buggy (write test cases in TUI.py / other files using interface functions once Will and James have refactored TUI.py) 
-- <strong>Mazen</strong>: Add randomized generated password for encryption and store into JSON file 
-
-### February Sprint
-<strong>Goal:</strong> Ensure that the application is fully capable of distributing files over a P2P LAN and WAN Network and works smoothly, add cloud secondary option
-
-- <strong>Will</strong>: Revise LAN file distribution for future P2P communications
-- <strong>James</strong>: Add cloud connection support (proof of concept)
-- <strong>Josh</strong>: Improve user interface (aesthetic and potential transition to UI) + implement WAN (support across computers on different networks)
-- <strong>Mazen</strong>: Add file control to storage nodes (prevent access to request files by registry nodes if not allowed) 
-
-### March Sprint
-<strong>Goal:</strong> Fine tune and make user experience more clear, potentially including mobile support, and ensure file distribution with large (4+) network size
-
-- <strong>Will</strong>: Finish WAN
-- <strong>James</strong>: Implement the retrieval the files based on the checksum instead of just the file name\
-- <strong>Josh</strong>:  Finish WAN + add mobile support (if time)
-- <strong>Mazen</strong>: Finish file control to storage nodes, have a .json file to keep track of which nodes storing which file chunks\
-
-### April Sprint
-<strong>Goal:</strong> Fix any bugs and improve UI, finalize project
-
-
-
-
-
-
-
-
-
-
-
 
 # FUNCTION FLOW (this is the general sequence in which this program should work):
 
@@ -270,6 +216,40 @@ library created for erasure coding based on reedsoloman error correction code
   - if a chunk is missing, copy another into it, as all chunks have same size
   - check how many chunks missing, if > partiy num/2 report too many chunk missing
 
+
+
+# aws_util.py
+ - description: aws cloud support
+
+### check key
+ - check if key file exist
+ - key file is "key.json" at the outer most folder
+
+### delete_file(filename)
+ - delete a file with name
+
+### upload (filename)
+### download (filename)
+
+### get_full_name()
+ - if only have the base name, can try to get full name needed to be downloaded from cloud
+
+
+# google_util.py
+ - description: aws cloud support
+
+### check_key()
+ - check if key file exist
+ - key file is "google.json" at the outer most folder
+
+### delete_file(filename)
+ - delete a file with name
+
+### upload (filename)
+### download (filename)
+
+### get_full_name()
+ - if only have the base name, can try to get full name needed to be downloaded from cloud
 
 
 

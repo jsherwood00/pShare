@@ -3,6 +3,7 @@ import time
 import json
 import struct
 import select
+import argparse
 from pathlib import Path
 from typing import Dict, Tuple
 import sys
@@ -121,21 +122,36 @@ class StorageService(storage_node_pb2_grpc.StorageServiceServicer):
 
 class StorageNode:
     """"""
-    def __init__(self):
+    def __init__(self, instance_id = None, storage_capacity_mb = 15):
         self.channel: grpc.Channel | None = None  # Channel represents a gRPC server essentially
         self.stub: storage_node_pb2_grpc.StorageServiceStub | None = None # Client side object that implements same methods as channel (essentially use the interface of the server to talk to it)
         self.uuid: str | None = None
         self.connected: bool = False
 
-        # Directory setup
-        self.files_dir = "storage_node_files"
+        self.should_run = True
+        self.storage_capacity_mb = storage_capacity_mb
+
+        # Use instance_id to create unique directories for each instance
+        self.instance_id = instance_id or socket.gethostname() # PC name by default
+
+        # Directory setup + naming scheme
+        self.files_dir = f"storage_node_files_{self.instance_id}"
         os.makedirs(self.files_dir, exist_ok=True)
-        self.conf_dir = Path("storage_conf")
+        self.conf_dir = Path(f"storage_conf_{self.instance_id}")
         self.uuid_file = self.conf_dir / "saved_uuid.json"
+
+        self.config_file = self.conf_dir / "config.json"
+
+        # Hostname can be specified by providing instance arg
+        self.hostname = instance_id if instance_id is not None else socket.gethostname()
+
         self.conf_dir.mkdir(exist_ok=True)
+        self._save_config()
 
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=5))
         self.service = StorageService()
+        self.service.files_dir = self.files_dir  # Instance specific file directory
+
         storage_node_pb2_grpc.add_StorageServiceServicer_to_server(
             self.service, self.server
         )
@@ -143,7 +159,7 @@ class StorageNode:
         # Use a random available port
         self.server_port = self.server.add_insecure_port('[::]:0')
         self.server.start()
-        print(f"Started file service on port {self.server_port}")
+        print(f"Started file service on port {self.server_port} for instance {self.instance_id}")
 
 
     def _load_uuid(self) -> str | None:
@@ -163,6 +179,26 @@ class StorageNode:
         with self.uuid_file.open('w') as f:
             json.dump({'uuid': uuid}, f, indent = 2)
 
+    def _save_config(self) -> None:
+        """Save initial bootup config"""
+        # Storage configuration
+        config = {
+            'storage_capacity_mb': self.storage_capacity_mb,
+            'hostname': self.hostname
+        }
+        with self.config_file.open('w') as f:
+            json.dump(config, f, indent=2)
+
+    def _load_config(self) -> None:
+        """Load configuration from config file"""
+        if self.config_file.exists():
+            with self.config_file.open('r') as f:
+                config = json.load(f)
+                self.storage_capacity_mb = config.get('storage_capacity_mb', 15)
+                saved_hostname = config.get('hostname')
+                self.hostname = saved_hostname
+
+
     # Method to send a heartbeat to registry node to say it's still up and running
     def _start_heartbeat(self):
         # Send a heartbeat every 5 seconds containing the UUID of this storage node and the timestamp
@@ -172,7 +208,9 @@ class StorageNode:
                     yield storage_node_pb2.HeartbeatRequest(
                         uuid=self.uuid,
                         timestamp=int(time.time()),
-                        file_service_port=self.server_port
+                        file_service_port=self.server_port,
+                        storage_capacity_mb=self.storage_capacity_mb,
+                        hostname=self.instance_id,
                     )
                     time.sleep(5)
                 except Exception as e:
@@ -211,15 +249,21 @@ class StorageNode:
             if stored_uuid is None:
                 request = storage_node_pb2.UUIDRequest(type='request_uuid')
                 response = self.stub.RequestUUID(request)
-                if response.success:
+                if response.uuid:
                     self._save_uuid(response.uuid)
                     self.uuid = response.uuid
                     print(f"Received UUID from RNode: {response.uuid}")
+                    return False
                 else:
                     print(f"Failed to obtain UUID: {response.message}")
                     return False
             else:
-                request = storage_node_pb2.UUIDValidation(uuid=stored_uuid)
+                self.uuid = stored_uuid
+                request = storage_node_pb2.UUIDValidation(
+                    uuid=stored_uuid,
+                    storage_capacity_mb=self.storage_capacity_mb,
+                    hostname=self.hostname
+                )
                 response = self.stub.ValidateUUID(request)
                 if response.success:
                     self.uuid = stored_uuid
@@ -258,27 +302,54 @@ def discover_rnodes() -> Dict[str, Tuple[str, int]]:
     return listener.registry_nodes
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Start a storage node with custom instance ID')
+    parser.add_argument('--instance', type=str, default=None, 
+                        help='Unique instance identifier to allow multiple nodes on one machine')
+    parser.add_argument('--storage', type=int, default=15,
+                        help='Storage capacity in GB, default is 15GB')
+    
+    args = parser.parse_args()
+
     rnodes = discover_rnodes()
     if not rnodes:
         print("No registry nodes found")
         sys.exit()
 
-    storage_node = StorageNode()
+    storage_node = StorageNode(instance_id=args.instance, storage_capacity_mb=args.storage)
 
-    # Connect to the first rnode
-    first_node_name = next(iter(rnodes))
-    address, port = rnodes[first_node_name]
-    
-    print(f"Attempting to connect to registry node at {address}:{port}")
-    if storage_node.connect_to_rnode(address, port):
+    while storage_node.should_run:
         try:
-            print("Connected to registry node...")
-            # Keep this program alive
-            while True:
-                time.sleep(1)
+            rnodes = discover_rnodes()  
+            
+            if rnodes:
+                # Connect to the first rnode
+                first_node_name = next(iter(rnodes))
+                address, port = rnodes[first_node_name]
+                
+                print(f"Attempting to connect to registry node at {address}:{port}")
+                if storage_node.connect_to_rnode(address, port):
+                    print("Connected to registry node...")
+                    
+                    while storage_node.connected and storage_node.should_run:
+                        time.sleep(1)
+                    
+                    if not storage_node.should_run:
+                        break
+                    
+                    print("Connection to registry node lost")
+            else:
+                print("No registry nodes found")
+            
+            print("Trying to reconnect in 2 seconds...")
+            time.sleep(2)
+                
         except KeyboardInterrupt:
-            print("\nDisconnecting...")
-        finally:
-            storage_node.disconnect()
-    else:
-        print("Failed to connect to registry node")
+            print("\nShutting down...")
+            storage_node.should_run = False
+            break
+        except Exception as e:
+            print(f"Error: {e}")
+            time.sleep(5)
+    
+    storage_node.disconnect()
+    print("Storage node shut down.")

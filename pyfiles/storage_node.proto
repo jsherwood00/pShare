@@ -19,6 +19,8 @@ message HeartbeatRequest {
     string uuid = 1;
     int64 timestamp = 2;
     int32 file_service_port = 3;
+    double storage_capacity_mb = 4;
+    string hostname = 5;
 }
 
 message HeartbeatResponse {
@@ -29,6 +31,7 @@ message HeartbeatResponse {
 message UUIDRequest {
     string type = 1;  // "request_uuid" or "send_uuid"
     optional string uuid = 2;  // Only used for "send_uuid"
+    optional string node_type = 3;
 }
 
 message UUIDResponse {
@@ -39,6 +42,8 @@ message UUIDResponse {
 
 message UUIDValidation {
     string uuid = 1;
+    double storage_capacity_mb = 2;
+    string hostname = 3;
 }
 
 message FileChunk {

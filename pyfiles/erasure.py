@@ -112,6 +112,7 @@ def depad(input_file_path:str,n_chunk_num=3):
 
 
 def fill_chunk(input_file_path:str,n_chunk_num=3,p_chunk_num=2):
+    if p_chunk_num == 0: return 
     # check if all chunk are there
     missing_chunk = 0
     # to find first chunk exist, as all chunk have same size, copy one chunk to another can fill the gap
@@ -136,6 +137,7 @@ def fill_chunk(input_file_path:str,n_chunk_num=3,p_chunk_num=2):
 
 
 def encode(input_file_path:str = None,n_chunk_num:int=3,p_chunk_num:int=2):
+    if p_chunk_num == 0: return 
     rsc = RSCodec(p_chunk_num)
     
 
@@ -169,6 +171,7 @@ def encode(input_file_path:str = None,n_chunk_num:int=3,p_chunk_num:int=2):
 
     
 def decode(input_file_path:str = None,n_chunk_num:int=3,p_chunk_num:int=2):
+    if p_chunk_num == 0: return 
     rsc = RSCodec(p_chunk_num)
 
     head_pos = 0

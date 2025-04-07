@@ -5,6 +5,11 @@ from werkzeug.utils import secure_filename
 import os
 import glob
 
+import google_util
+import aws_util
+
+
+cur_rnode = None
 
 path = os.getcwd() 
 parent = os.path.join(path, os.pardir) 
@@ -30,16 +35,13 @@ def upload():
                 print('[DEBUG] no file selected')
                 return redirect('/')
 
-            print(f"[DEBUG] Received {f.filename}, storing to pyfiles/uploading_files")
-
             filename = secure_filename(f.filename) # prevent malicious entries
             dest = os.path.join(path, "uploading_files")
             full_path = os.path.join(dest, filename)
 
             f.save(full_path)
 
-            print("[DEBUG] File stored locally, now uploading to SNODES")
-            backend.pDistribute(absolute_path = full_path)
+            backend.pDistribute(absolute_path = full_path, filename = filename)
 
             # After uploading, empty the uploading_files folder
             uploaded_files = glob.glob(os.path.join(dest, '*')) #all files in dir
@@ -49,7 +51,7 @@ def upload():
 
 
         except Exception as e:
-            print(f"[DEBUG] While attempting to store file locally, encountered error: {e}")
+            print(f"[ERROR] While attempting to store file locally, encountered error: {e}")
             return redirect('/')
 
 
@@ -62,6 +64,7 @@ def upload():
 def download():
     if request.method == "POST":
         selected_files = request.form.getlist('selected-file')
+        print(selected_files)
         backend.pRetrieve(selected_files)
 
     return redirect('/')
@@ -87,11 +90,11 @@ def snodes():
     requested_snodes = backend.pAvailableSnodes()
     requested_snodes = requested_snodes if requested_snodes is not None else {}
     
-    available_storage = backend.pAvailableStorage()
+    total_storage = backend.pTotalStorage()
     used_storage = backend.pUsedStorage()
 
-    return render_template('nodes.html', connected_nodes=connected_snodes, 
-        available_nodes = requested_snodes, available_storage = available_storage, 
+    return render_template('nodes.html', connected_snodes=connected_snodes, 
+        available_snodes = requested_snodes, total_storage = total_storage, 
         used_storage = used_storage, type="s")
 
 
@@ -109,7 +112,7 @@ def rnodes():
 
 @app.route('/add-snode', methods=['POST'])
 def add_snode():
-    selected_snodes = request.form.getlist('selected-available-node')
+    selected_snodes = request.form.keys() # seems to work??
     print(selected_snodes)
     backend.pAddSnode(selected_snodes)
     return redirect('/snodes')
@@ -141,6 +144,37 @@ def remove_rnode():
 @app.route('/broadcast', methods=['POST'])
 def broadcast():
     return redirect('/snodes')
+
+""" TODO: provide description """
+@app.route('/cloud',methods=['GET','POST'])
+def cloud_support():
+    google_avaliability = False
+    aws_avaliablity = False
+    if cur_rnode != None:
+        google_avaliability = cur_rnode.google
+        aws_avaliablity = cur_rnode.aws
+
+    return render_template("cloud.html",google=google_avaliability,aws=aws_avaliablity)
+ 
+
+""" TODO: provide description """
+@app.route('/google',methods=["POST"])
+def set_google_key():
+    if request.method=="POST":
+        google_path = request.form['google_key']
+        google_util.set_key(google_path)
+
+    return redirect('/cloud')
+
+""" TODO: provide description """
+@app.route('/aws',methods=["POST"])
+def set_aws_key():
+    if request.method=="POST":
+        aws_access_id = request.form['aws_access_id']
+        aws_access_key = request.form['aws_access_key']
+        aws_util.set_key(access_id=aws_access_id,key=aws_access_key)
+ 
+    return redirect('/cloud')
 
 
 if __name__ == '__main__':
