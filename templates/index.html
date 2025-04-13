@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>pShare</title>
+        <link rel="stylesheet" href="static/app.css">
+    </head>
+    <body>
+        <div class="toolbar">
+            <form>
+                <input type="submit" formaction="/" value="Home">
+                <input type="submit" formaction="/snodes" value="Manage S-nodes">
+                <input type="submit" formaction="/rnodes" value="Manage R-nodes">
+                <input type="submit" formaction="/cloud" value="Cloud">
+            </form>
+        </div>
+        <form method="POST" enctype="multipart/form-data">
+                <table>
+                        <tr class="gen-header">
+                            <th>File<input class="file-action" type="submit" formaction="/download" value="↓"><input type="submit" class="file-action" formaction="/delete" value="X">                <input type="file" name="file">
+                                <input type="submit" formaction="/upload" value="Upload"></th>
+                            <th>KB </th>
+                            <th>Available (click for more info)</th>
+                        </tr>
+                        {% if files_to_storage %}
+                            {% for filename, size in files_to_storage.items() %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" class="check-with-label" id="{{ filename }}" name="selected-file" value="{{ filename }}">
+                                        <label class="label-for-check" for="{{ filename }}">{{filename}}</label>
+                                    </td>
+                                    <td>
+                                        {{size}}
+                                    </td>
+                                    <td>
+                                        <input type="submit" formaction="/availability" name="{{files_to_encfiles[filename]}}" value="{{files_to_availability[filename]}}">
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% endif %}
+                </table>   
+        </form>     
+    </body>
+</html>

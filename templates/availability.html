@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>pShare</title>
+        <link rel="stylesheet" href="static/app.css">
+    </head>
+    <body>
+        <div class="toolbar">
+            <form>
+                <input type="submit" formaction="/" value="Home">
+                <input type="submit" formaction="/snodes" value="Manage S-nodes">
+                <input type="submit" formaction="/rnodes" value="Manage R-nodes">
+                <input type="submit" formaction="/cloud" value="Cloud">
+            </form>
+        </div>
+        <table>
+            <tr class="gen-header">
+                <th>Remote device</th>
+                <th>Availability</th>
+            </tr>
+            {% if name_availability %}
+                {% for name, availability in name_availability.items() %}
+                    <tr>
+                        <td>{{name}}</td>
+                        <td>
+                            {% if availability == 1 %}
+                            Connected
+                            {% else %}
+                            Disconnected
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            {% endif %}
+        </table>
+    </body>
+</html>

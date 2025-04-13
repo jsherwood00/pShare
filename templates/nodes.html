@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Connections</title>
+        <link rel="stylesheet" href="static/app.css">
+    </head>
+    <body>
+        <div class="toolbar">
+            <form>
+                <input type="submit" formaction="/" value="Home">
+                <input type="submit" formaction="/snodes" value="Manage S-nodes">
+                <input type="submit" formaction="/rnodes" value="Manage R-nodes">
+                <input type="submit" formaction="/cloud" value="Cloud">
+            </form>
+        </div>
+        {% if type == "s" and connected_snodes.items() %}
+            <h2 class="gen-header"><b>Connected SNODES</b></h2>
+            <form method="POST">
+                <table>
+                    {% if connected_snodes.items() %}
+                        <tr>
+                            <th>Device</th>
+                            <th>Storage ({{ used_storage }} of {{ total_storage }} MB used)</th>
+                            <th>Disconnect</th>
+                        </tr>
+                    {% endif %}
+
+                    {% for uuid, name_size_tuple in connected_snodes.items() %}
+                        <tr>
+                            <td>
+                                {{ name_size_tuple[0] }}
+                            </td>
+                            <td>
+                                {{ name_size_tuple[1] }} / {{ name_size_tuple[2] }}
+                            </td>
+                            <td>
+                                <input formaction="remove-snode" type="submit" name="{{uuid}}" value="-"> 
+                                <!-- TODO: show as "Offline" if not currently connected -->
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </form>
+        {% elif type == "r" %}
+            <h2 class="gen-header"><b>Connected RNODES</b></h2>
+        {% endif %}
+
+        {% if type == "s" %}
+            <h2 class="gen-header"><b>Available SNODES</b></h2>
+
+            <form method="POST">
+                <table>
+                    {% if available_snodes.items() %}
+                        <tr>
+                            <th>Device</th>
+                            <th>Storage (MB)</th>
+                            <th>Connect</th>
+                        </tr>
+                    {% endif %}
+
+                    {% for uuid, name_size_tuple in available_snodes.items() %}
+                        <tr>
+                            
+                            <td>
+                                {{ name_size_tuple[0] }}
+                            </td>
+                            <td>
+                                {{ name_size_tuple[1] }}
+                            </td>
+                            <td>
+                                <input formaction="add-snode" type="submit" name="{{uuid}}" value="+">
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </form>
+        {% else %}
+            <h2 class="gen-header"><b>Available RNODES</b></h2>
+        {% endif %}
+    </body>
+</html>

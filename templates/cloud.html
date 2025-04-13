@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Cloud Support</title>
+        <link rel="stylesheet" href="static/app.css">
+    </head>
+    <body>
+        <div class="toolbar">
+            <form>
+                <input type="submit" formaction="/" value="Home">
+                <input type="submit" formaction="/snodes" value="Manage S-nodes">
+                <input type="submit" formaction="/rnodes" value="Manage R-nodes">
+                <input type="submit" formaction="/cloud" value="Cloud">
+            </form>
+        </div>
+        <h2 class="gen-header">Google</h2>
+        <form action="/google" method="POST">
+            <input type="text" placeholder="Key (json) file path" name="google_key">
+            <input type="submit" value="Connect">
+        </form>
+        <h2 class="gen-header">AWS</h2>
+        <form action="/aws" method="POST">
+            <input type="text" placeholder="Access id" name="aws_access_id">
+            <input type="text" placeholder="Access key" name="aws_access_key">
+            <input type="submit" value="Connect">
+        </form>
+    </body>
+</html>
